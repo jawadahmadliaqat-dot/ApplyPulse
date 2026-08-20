@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ApplyPulse Hub</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      width: 300px;
+      padding: 16px;
+      margin: 0;
+      background-color: #f8fafc;
+      color: #0f172a;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    h2 {
+      margin: 0;
+      font-size: 16px;
+      color: #1e293b;
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      font-weight: 600;
+      background: #dcfce7;
+      color: #15803d;
+      padding: 3px 8px;
+      border-radius: 12px;
+    }
+    .dot {
+      width: 6px;
+      height: 6px;
+      background: #22c55e;
+      border-radius: 50%;
+    }
+    .form-group {
+      margin-bottom: 12px;
+    }
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: bold;
+      margin-bottom: 4px;
+      color: #475569;
+    }
+    input {
+      width: 100%;
+      padding: 8px 10px;
+      box-sizing: border-box;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font-size: 13px;
+      outline: none;
+    }
+    input:focus {
+      border-color: #2563eb;
+    }
+    textarea {
+      width: 100%;
+      min-height: 52px;
+      padding: 8px 10px;
+      box-sizing: border-box;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font: inherit;
+      font-size: 13px;
+      resize: vertical;
+      outline: none;
+    }
+    .btn {
+      width: 100%;
+      padding: 10px;
+      border: none;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 13px;
+      margin-top: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-sizing: border-box;
+    }
+    .btn-primary { background-color: #2563eb; color: white; }
+    .btn-save { background-color: #059669; color: white; }
+    .btn-google { background-color: #4285f4; color: white; }
+    .btn-outline {
+      background-color: transparent;
+      border: 1px solid #cbd5e1;
+      color: #475569;
+    }
+    .divider {
+      text-align: center;
+      margin: 12px 0;
+      color: #94a3b8;
+      font-size: 11px;
+      font-weight: bold;
+    }
+    .hint {
+      font-size: 11px;
+      color: #64748b;
+      text-align: center;
+      margin: 6px 0 10px;
+      line-height: 1.4;
+    }
+    .stats-card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 12px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      text-align: center;
+    }
+    .stat-number {
+      font-weight: 700;
+      font-size: 16px;
+      color: #2563eb;
+    }
+    .stat-label {
+      font-size: 10px;
+      color: #64748b;
+      margin-top: 2px;
+    }
+    #status-msg {
+      font-size: 12px;
+      font-weight: bold;
+      text-align: center;
+      margin-top: 10px;
+      min-height: 16px;
+    }
+    .success { color: #16a34a; }
+    .error { color: #dc2626; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h2>ApplyPulse</h2>
+    <div id="sync-badge" class="status-badge hidden">
+      <span class="dot"></span> Ready
+    </div>
+  </div>
+
+  <!-- LOGIN -->
+  <div id="login-section">
+    <button id="google-login-btn" class="btn btn-google">
+      Sign in with Google
+    </button>
+
+    <div class="divider">OR USE EMAIL</div>
+
+    <div class="form-group">
+      <label for="email">Email Address</label>
+      <input type="email" id="email" placeholder="user@example.com">
+    </div>
+    <div class="form-group">
+      <label for="password">Password</label>
+      <input type="password" id="password" placeholder="••••••••">
+    </div>
+    <button id="login-btn" class="btn btn-primary">Login to Account</button>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="dashboard-section" class="hidden">
+    <div class="stats-card">
+      <div>
+        <div class="stat-number" id="scrapedCount">—</div>
+        <div class="stat-label">Saved (session)</div>
+      </div>
+      <div>
+        <div class="stat-number" id="appliedCount">—</div>
+        <div class="stat-label">Open dashboard</div>
+      </div>
+    </div>
+
+    <!-- MAIN ACTION -->
+    <div class="form-group">
+      <label for="job-note">Quick note (optional)</label>
+      <textarea id="job-note" placeholder="Referred by Ali, HR email, follow up..."></textarea>
+    </div>
+    <button id="save-job-btn" class="btn btn-save">Save this job</button>
+    <p class="hint">Open any job page (LinkedIn, Indeed, careers site…), then click Save.</p>
+
+    <button id="open-web-portal-btn" class="btn btn-primary">
+      Open Web Dashboard
+    </button>
+    <button id="logout-btn" class="btn btn-outline" style="margin-top: 8px;">Logout</button>
+  </div>
+
+  <div id="status-msg"></div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
