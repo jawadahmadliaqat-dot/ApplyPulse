@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ApplyPulse</title>
+
+  <!-- TAB LOGO (FAVICON) -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128'><rect width='128' height='128' rx='28' fill='%230F172A'/><rect x='28' y='44' width='72' height='52' rx='8' stroke='%2338BDF8' stroke-width='6' fill='none'/><rect x='48' y='30' width='32' height='14' rx='4' stroke='%2338BDF8' stroke-width='6' fill='none'/><path d='M18 70H38L48 50L58 88L70 60L78 70H110' stroke='%2322C55E' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/></svg>" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <style>
+    #splash {
+      position: fixed; inset: 0; z-index: 50;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: #020617;
+      transition: opacity .55s ease, visibility .55s ease;
+    }
+    #splash.hide { opacity: 0; visibility: hidden; pointer-events: none; }
+    .splash-logo {
+      font-size: 1.75rem; font-weight: 700; color: #fff;
+      opacity: 0; transform: translateY(10px);
+      animation: up .65s ease .12s forwards;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .splash-logo span { color: #38bdf8; }
+    .splash-sub {
+      margin-top: .4rem; font-size: .8rem; color: #64748b;
+      opacity: 0; animation: up .65s ease .3s forwards;
+    }
+    .bar {
+      margin-top: 1.25rem; width: 110px; height: 3px; border-radius: 99px;
+      background: #1e293b; overflow: hidden; opacity: 0;
+      animation: up .5s ease .45s forwards;
+    }
+    .bar i {
+      display: block; height: 100%; width: 40%;
+      background: linear-gradient(90deg,#38bdf8,#22c55e);
+      animation: slide 1s ease-in-out infinite;
+    }
+    @keyframes up { to { opacity: 1; transform: none; } }
+    @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(280%); } }
+    .nav-item.active { background: #1e293b; color: #fff; }
+    .nav-item { transition: background .2s ease, color .2s ease, transform .2s ease; }
+    .nav-item:active { transform: scale(.98); }
+    #sidebar { transition: width .3s ease, transform .3s ease; }
+    #sidebar.sidebar-collapsed { width: 5rem; }
+    #sidebar.sidebar-collapsed .sidebar-label,
+    #sidebar.sidebar-collapsed .brand-label { display: none; }
+    #sidebar.sidebar-collapsed .brand-row,
+    #sidebar.sidebar-collapsed .nav-item,
+    #sidebar.sidebar-collapsed #logout-btn { justify-content: center; text-align: center; }
+    #sidebar.sidebar-collapsed .nav-item { font-size: 0; }
+    #sidebar.sidebar-collapsed .nav-item::first-letter { font-size: 1rem; }
+    #sidebar-overlay { opacity: 0; pointer-events: none; transition: opacity .25s ease; }
+    #sidebar-overlay.open { opacity: 1; pointer-events: auto; }
+    .hamburger-line { transition: transform .25s ease, opacity .2s ease; transform-origin: center; }
+    #menu-toggle.open .line-one { transform: translateY(6px) rotate(45deg); }
+    #menu-toggle.open .line-two { opacity: 0; }
+    #menu-toggle.open .line-three { transform: translateY(-6px) rotate(-45deg); }
+    .status-badge { display: inline-flex; align-items: center; border-radius: 999px; padding: .25rem .55rem; font-size: .7rem; font-weight: 600; }
+    .status-saved, .status-new-match { color: #bae6fd; background: rgba(14, 116, 144, .2); }
+    .status-applied { color: #bfdbfe; background: rgba(37, 99, 235, .2); }
+    .status-interview { color: #fde68a; background: rgba(217, 119, 6, .2); }
+    .status-offer { color: #bbf7d0; background: rgba(22, 163, 74, .2); }
+    .status-rejected, .status-withdrawn { color: #fecaca; background: rgba(220, 38, 38, .16); }
+    .status-position-closed { color: #cbd5e1; background: rgba(71, 85, 105, .35); }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans">
+
+  <!-- SPLASH SCREEN -->
+  <div id="splash">
+    <div class="splash-logo">
+      <svg width="40" height="40" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="128" height="128" rx="28" fill="#0F172A"/>
+        <rect x="28" y="44" width="72" height="52" rx="8" stroke="#38BDF8" stroke-width="6" fill="none"/>
+        <rect x="48" y="30" width="32" height="14" rx="4" stroke="#38BDF8" stroke-width="6" fill="none"/>
+        <path d="M18 70H38L48 50L58 88L70 60L78 70H110" stroke="#22C55E" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div>Apply<span>Pulse</span></div>
+    </div>
+    <div class="splash-sub">Track jobs you actually open</div>
+    <div class="bar"><i></i></div>
+  </div>
+
+  <!-- LOGIN VIEW -->
+  <div id="login-view" class="min-h-screen flex items-center justify-center px-4">
+    <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6">
+      <div class="flex items-center gap-3 mb-4">
+        <svg width="36" height="36" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="128" height="128" rx="28" fill="#0F172A"/>
+          <rect x="28" y="44" width="72" height="52" rx="8" stroke="#38BDF8" stroke-width="6" fill="none"/>
+          <rect x="48" y="30" width="32" height="14" rx="4" stroke="#38BDF8" stroke-width="6" fill="none"/>
+          <path d="M18 70H38L48 50L58 88L70 60L78 70H110" stroke="#22C55E" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <h1 class="text-xl font-bold">Apply<span class="text-sky-400">Pulse</span></h1>
+      </div>
+      <p class="text-slate-400 text-sm mb-6">Save jobs from LinkedIn / Indeed with the extension, then track status here.</p>
+      <button id="google-login-btn" class="w-full bg-white hover:bg-slate-100 text-slate-900 py-2.5 rounded-lg font-medium flex items-center justify-center gap-2">
+        <span class="text-base font-bold">G</span> Continue with Google
+      </button>
+      <div class="flex items-center gap-3 my-4 text-[11px] text-slate-600"><span class="h-px flex-1 bg-slate-800"></span>OR<span class="h-px flex-1 bg-slate-800"></span></div>
+      <label class="text-xs text-slate-400">Email</label>
+      <input id="login-email" type="email" class="w-full mt-1 mb-3 px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-sm" placeholder="you@email.com" />
+      <label class="text-xs text-slate-400">Password</label>
+      <input id="login-password" type="password" class="w-full mt-1 mb-4 px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-sm" />
+      <button id="login-btn" class="w-full bg-blue-600 hover:bg-blue-500 py-2.5 rounded-lg font-medium">Login</button>
+      <p id="login-error" class="text-red-400 text-xs text-center mt-3"></p>
+    </div>
+  </div>
+
+  <!-- APP SHELL -->
+  <div id="app-view" class="hidden min-h-screen md:flex">
+    <div id="sidebar-overlay" class="fixed inset-0 z-30 bg-slate-950/70 md:hidden"></div>
+    <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 w-64 shrink-0 border-r border-slate-800 bg-slate-900 p-4 -translate-x-full md:translate-x-0 md:static md:flex flex-col">
+      <div class="brand-row flex items-center gap-3 mb-8 px-2">
+        <svg width="32" height="32" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="128" height="128" rx="28" fill="#0F172A"/>
+          <rect x="28" y="44" width="72" height="52" rx="8" stroke="#38BDF8" stroke-width="6" fill="none"/>
+          <rect x="48" y="30" width="32" height="14" rx="4" stroke="#38BDF8" stroke-width="6" fill="none"/>
+          <path d="M18 70H38L48 50L58 88L70 60L78 70H110" stroke="#22C55E" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span class="brand-label font-bold text-lg">Apply<span class="text-sky-400">Pulse</span></span>
+        <button id="menu-toggle" aria-label="Toggle navigation" title="Toggle navigation" class="ml-auto w-9 h-9 flex items-center justify-center rounded-lg hover:bg-slate-800">
+          <span class="sr-only">Toggle menu</span>
+          <span class="block w-5 space-y-1.5">
+            <span class="hamburger-line line-one block h-0.5 rounded-full bg-slate-300"></span>
+            <span class="hamburger-line line-two block h-0.5 rounded-full bg-slate-300"></span>
+            <span class="hamburger-line line-three block h-0.5 rounded-full bg-slate-300"></span>
+          </span>
+        </button>
+      </div>
+      <nav class="space-y-1 text-sm flex-1">
+        <button data-page="apps" class="nav-item active w-full text-left px-3 py-2 rounded-lg text-slate-300 hover:bg-slate-800"><span aria-hidden="true">▦</span> <span class="sidebar-label">Applications</span></button>
+        <button data-page="save" class="nav-item w-full text-left px-3 py-2 rounded-lg text-slate-400 hover:bg-slate-800"><span aria-hidden="true">↗</span> <span class="sidebar-label">How to save jobs</span></button>
+        <button data-page="manual" class="nav-item w-full text-left px-3 py-2 rounded-lg text-slate-400 hover:bg-slate-800"><span aria-hidden="true">＋</span> <span class="sidebar-label">Add manually</span></button>
+        <button data-page="about" class="nav-item w-full text-left px-3 py-2 rounded-lg text-slate-400 hover:bg-slate-800"><span aria-hidden="true">i</span> <span class="sidebar-label">What this can do</span></button>
+      </nav>
+      <button id="logout-btn" class="text-left text-sm text-slate-500 hover:text-white px-3 py-2"><span aria-hidden="true">↪</span> <span class="sidebar-label">Logout</span></button>
+    </aside>
+
+    <main class="flex-1 p-4 md:p-8 overflow-auto">
+      <div class="md:hidden flex items-center justify-between gap-3 mb-6 border-b border-slate-800 pb-4">
+        <div class="flex items-center gap-3">
+          <button id="mobile-menu-toggle" aria-label="Open navigation" title="Open navigation" class="w-9 h-9 flex items-center justify-center rounded-lg bg-slate-900 border border-slate-700 text-slate-200 text-lg">☰</button>
+          <div class="flex items-center gap-2 font-bold">Apply<span class="text-sky-400">Pulse</span></div>
+        </div>
+        <select id="mobile-nav" aria-label="Navigate" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200">
+          <option value="apps">Applications</option>
+          <option value="save">How to save</option>
+          <option value="manual">Add manually</option>
+          <option value="about">What this can do</option>
+        </select>
+      </div>
+
+      <section id="page-apps">
+        <div class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 mb-6">
+          <div>
+            <p class="text-xs uppercase tracking-widest text-sky-400 mb-2">Your workspace</p>
+            <h1 class="text-2xl md:text-3xl font-semibold text-white">Applications</h1>
+            <p class="text-sm text-slate-400 mt-1">Keep every opportunity visible, organized, and moving.</p>
+          </div>
+          <button data-page="manual" class="bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold text-sm px-4 py-2.5 rounded-lg">+ Add application</button>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+            <p class="text-[11px] text-slate-500 uppercase">Total</p>
+            <p id="stat-total" class="text-2xl font-bold mt-1">0</p>
+          </div>
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+            <p class="text-[11px] text-slate-500 uppercase">Applied</p>
+            <p id="stat-applied" class="text-2xl font-bold text-blue-400 mt-1">0</p>
+          </div>
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+            <p class="text-[11px] text-slate-500 uppercase">Interview</p>
+            <p id="stat-interview" class="text-2xl font-bold text-amber-400 mt-1">0</p>
+          </div>
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+            <p class="text-[11px] text-slate-500 uppercase">Offer / Rejected</p>
+            <p id="stat-other" class="text-2xl font-bold mt-1">0</p>
+          </div>
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+            <p class="text-[11px] text-slate-500 uppercase">Call rate</p>
+            <p id="stat-rate" class="text-2xl font-bold text-emerald-400 mt-1">0%</p>
+          </div>
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+            <p class="text-[11px] text-slate-500 uppercase">Avg response</p>
+            <p id="stat-response" class="text-2xl font-bold text-amber-400 mt-1">—</p>
+          </div>
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+            <p class="text-[11px] text-slate-500 uppercase">Follow-ups due</p>
+            <p id="stat-follow-ups" class="text-2xl font-bold text-sky-400 mt-1">0</p>
+          </div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+          <div class="px-4 py-4 border-b border-slate-800 space-y-3">
+            <div class="flex justify-between items-center gap-3">
+              <div>
+                <h2 class="text-sm font-semibold">Saved applications</h2>
+                <p id="result-count" class="text-xs text-slate-500 mt-1">0 applications</p>
+              </div>
+              <div class="flex items-center gap-3">
+                <button onclick="exportJobs()" class="text-xs text-slate-400 hover:text-white">CSV</button>
+                <button onclick="exportJSON()" class="text-xs text-slate-400 hover:text-white">JSON</button>
+                <button onclick="exportCalendar()" class="text-xs text-slate-400 hover:text-white">Calendar</button>
+                <button onclick="loadJobs()" class="text-xs text-sky-400 hover:text-sky-300">Refresh</button>
+              </div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <input id="job-search" type="search" placeholder="Search title or company" class="bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs outline-none focus:border-sky-500" />
+              <select id="status-filter" class="bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs outline-none focus:border-sky-500">
+                <option value="all">All statuses</option>
+                <option>Saved</option><option>New Match</option><option>Applied</option><option>Interview</option><option>Offer</option><option>Rejected</option><option>Withdrawn</option><option>Position Closed</option>
+              </select>
+              <select id="source-filter" class="bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs outline-none focus:border-sky-500">
+                <option value="all">All sources</option>
+              </select>
+            </div>
+            <div class="flex items-center justify-between gap-3 pt-1">
+              <p class="text-[11px] text-slate-500">Choose the view that fits your workflow.</p>
+              <div class="flex rounded-lg border border-slate-700 overflow-hidden text-xs">
+                <button id="table-view-btn" onclick="setView('table')" class="px-3 py-1.5 bg-slate-700 text-white">Table</button>
+                <button id="board-view-btn" onclick="setView('board')" class="px-3 py-1.5 bg-slate-950 text-slate-400">Board</button>
+              </div>
+            </div>
+          </div>
+          <div id="table-view" class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="text-xs text-slate-500 uppercase bg-slate-950/40">
+                <tr>
+                  <th class="px-4 py-3 text-left">Title</th>
+                  <th class="px-4 py-3 text-left">Company</th>
+                  <th class="px-4 py-3 text-left">Source</th>
+                  <th class="px-4 py-3 text-left">Status</th>
+                  <th class="px-4 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="job-rows" class="divide-y divide-slate-800"></tbody>
+            </table>
+          </div>
+          <div id="kanban-view" class="hidden p-4 overflow-x-auto">
+            <div id="kanban-board" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 min-w-[720px]"></div>
+          </div>
+          <p id="empty-msg" class="hidden text-center text-slate-500 text-sm py-12 px-4">
+            No jobs yet. Open a job on LinkedIn/Indeed and save with the extension.
+          </p>
+        </div>
+      </section>
+
+      <section id="page-save" class="hidden max-w-xl space-y-4">
+        <h2 class="text-lg font-semibold">How to save jobs (main feature)</h2>
+        <ol class="list-decimal list-inside text-sm text-slate-300 space-y-2">
+          <li>Install <b>ApplyPulse Saver</b> Chrome extension (Load unpacked).</li>
+          <li>Login in the extension (same account).</li>
+          <li>Open any job on <b>LinkedIn</b> or <b>Indeed</b>.</li>
+          <li>Click extension → <b>Save this job</b> (title/company auto-filled from page).</li>
+          <li>It appears here under Applications. Update status anytime.</li>
+        </ol>
+      </section>
+
+      <section id="page-manual" class="hidden max-w-xl">
+        <h2 class="text-lg font-semibold mb-2">Add manually</h2>
+        <p class="text-sm text-slate-400 mb-4">For jobs not on LinkedIn/Indeed, or if extension isn’t installed.</p>
+        <div class="space-y-3 bg-slate-900 border border-slate-800 rounded-xl p-4">
+          <input id="new-title" placeholder="Job title *" class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-sm outline-none focus:border-sky-500" />
+          <input id="new-company" placeholder="Company *" class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-sm outline-none focus:border-sky-500" />
+          <input id="new-location" placeholder="Location" class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-sm outline-none focus:border-sky-500" />
+          <input id="new-url" type="url" placeholder="Job URL (https://...)" class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-sm outline-none focus:border-sky-500" />
+          <input id="new-resume-version" placeholder="Resume version (e.g. Resume_V2_Backend.pdf)" class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-sm outline-none focus:border-sky-500" />
+          <label for="new-follow-up-date" class="text-xs text-slate-400">Follow-up date</label>
+          <input id="new-follow-up-date" type="date" class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-sm outline-none focus:border-sky-500" />
+          <textarea id="new-notes" rows="3" placeholder="Notes, contact, next step..." class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-sm outline-none focus:border-sky-500"></textarea>
+          <button id="add-job-btn" class="w-full bg-emerald-600 hover:bg-emerald-500 py-2 rounded-lg text-sm font-medium">Save application</button>
+          <p id="form-msg" class="text-xs text-slate-500"></p>
+        </div>
+      </section>
+
+      <section id="page-about" class="hidden max-w-xl space-y-3 text-sm text-slate-300">
+        <h2 class="text-lg font-semibold text-white">What ApplyPulse can do</h2>
+        <ul class="list-disc list-inside space-y-1">
+          <li>One-click save from LinkedIn / Indeed (extension)</li>
+          <li>Track status: Applied → Interviewing → Offer / Rejected</li>
+          <li>Store job URL + source</li>
+          <li>Dashboard stats</li>
+        </ul>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const isLocal = ["127.0.0.1", "localhost"].includes(window.location.hostname);
+    const API = isLocal ? window.location.origin : "https://applypulse.onrender.com";
+    const GOOGLE_CLIENT_ID = "729764162601-988q3pc6rbhd6nmoa563j8opqgiiatvd.apps.googleusercontent.com";
+    let token = null;
+    let jobs = [];
+    let currentView = "table";
+
+    window.addEventListener("load", () => {
+      setTimeout(() => document.getElementById("splash")?.classList.add("hide"), 1600);
+    });
+
+    function getToken() {
+      const t = new URLSearchParams(location.search).get("token");
+      if (t) {
+        localStorage.setItem("access_token", t);
+        history.replaceState({}, "", location.pathname);
+        return t;
+      }
+      return localStorage.getItem("access_token");
+    }
+
+    function showLogin() {
+      document.getElementById("login-view").classList.remove("hidden");
+      document.getElementById("app-view").classList.add("hidden");
+    }
+    function showApp() {
+      document.getElementById("login-view").classList.add("hidden");
+      document.getElementById("app-view").classList.remove("hidden");
+      loadJobs();
+    }
+
+    function navigate(page) {
+      ["apps", "save", "manual", "about"].forEach(p => {
+        document.getElementById("page-" + p)?.classList.toggle("hidden", p !== page);
+      });
+      document.querySelectorAll(".nav-item").forEach(n => {
+        n.classList.toggle("active", n.dataset.page === page);
+      });
+      const mobileNav = document.getElementById("mobile-nav");
+      if (mobileNav) mobileNav.value = page;
+      closeMobileSidebar();
+    }
+
+    function toggleDesktopSidebar() {
+      const sidebar = document.getElementById("sidebar");
+      const collapsed = sidebar.classList.toggle("sidebar-collapsed");
+      localStorage.setItem("sidebar_collapsed", collapsed ? "1" : "0");
+    }
+
+    function openMobileSidebar() {
+      document.getElementById("sidebar").classList.remove("-translate-x-full");
+      document.getElementById("sidebar-overlay").classList.add("open");
+      document.getElementById("mobile-menu-toggle")?.classList.add("hidden");
+    }
+
+    function closeMobileSidebar() {
+      document.getElementById("sidebar").classList.add("-translate-x-full");
+      document.getElementById("sidebar-overlay").classList.remove("open");
+      document.getElementById("mobile-menu-toggle")?.classList.remove("hidden");
+    }
+
+    document.querySelectorAll("[data-page]").forEach(btn => {
+      btn.onclick = () => {
+        navigate(btn.dataset.page);
+      };
+    });
+
+    document.getElementById("mobile-nav")?.addEventListener("change", event => navigate(event.target.value));
+    document.getElementById("menu-toggle")?.addEventListener("click", event => {
+      event.currentTarget.classList.toggle("open");
+      toggleDesktopSidebar();
+    });
+    document.getElementById("mobile-menu-toggle")?.addEventListener("click", openMobileSidebar);
+    document.getElementById("sidebar-overlay")?.addEventListener("click", closeMobileSidebar);
+    if (localStorage.getItem("sidebar_collapsed") === "1" && window.innerWidth >= 768) {
+      document.getElementById("sidebar")?.classList.add("sidebar-collapsed");
+    }
+
+    async function login() {
+      const email = document.getElementById("login-email").value.trim();
+      const password = document.getElementById("login-password").value;
+      const err = document.getElementById("login-error");
+      err.textContent = "";
+      try {
+        const res = await fetch(`${API}/api/auth/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        if (!res.ok) { err.textContent = data.detail || "Login failed"; return; }
+        token = data.access_token;
+        localStorage.setItem("access_token", token);
+        showApp();
+      } catch {
+        err.textContent = "Server offline";
+      }
+    }
+
+    async function finishGoogleLogin(googleAccessToken) {
+      const error = document.getElementById("login-error");
+      try {
+        const res = await fetch(`${API}/api/auth/google`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ access_token: googleAccessToken })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.access_token) {
+          error.textContent = data.detail || "Google login failed";
+          return true;
+        }
+        token = data.access_token;
+        localStorage.setItem("access_token", token);
+        showApp();
+      } catch {
+        error.textContent = "Google login could not reach the server";
+      }
+    }
+
+    function startGoogleLogin() {
+      if (!window.google?.accounts?.oauth2) {
+        document.getElementById("login-error").textContent = "Google login is still loading. Try again.";
+        return;
+      }
+      const tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: GOOGLE_CLIENT_ID,
+        scope: "openid email profile",
+        callback: response => {
+          if (response.error || !response.access_token) {
+            document.getElementById("login-error").textContent = "Google login was cancelled.";
+            return;
+          }
+          finishGoogleLogin(response.access_token);
+        }
+      });
+      tokenClient.requestAccessToken({ prompt: "select_account" });
+    }
+
+    async function loadJobs() {
+      if (!token) return showLogin();
+      const res = await fetch(`${API}/api/jobs/`, {
+        headers: { Authorization: "Bearer " + token }
+      });
+      if (res.status === 401) {
+        localStorage.removeItem("access_token");
+        token = null;
+        return showLogin();
+      }
+      jobs = await res.json();
+      updateSourceFilter();
+      render();
+    }
+
+    function esc(s) {
+      return String(s ?? "").replace(/[&<>"']/g, c =>
+        ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    }
+
+    function filteredJobs() {
+      const query = document.getElementById("job-search")?.value.trim().toLowerCase() || "";
+      const status = document.getElementById("status-filter")?.value || "all";
+      const source = document.getElementById("source-filter")?.value || "all";
+      return jobs.filter(job => {
+        const matchesQuery = !query || `${job.title} ${job.company}`.toLowerCase().includes(query);
+        const matchesStatus = status === "all" || job.status === status;
+        const matchesSource = source === "all" || (job.source || "Manual") === source;
+        return matchesQuery && matchesStatus && matchesSource;
+      });
+    }
+
+    function updateSourceFilter() {
+      const select = document.getElementById("source-filter");
+      const current = select.value;
+      const sources = [...new Set(jobs.map(job => job.source || "Manual"))].sort();
+      select.innerHTML = `<option value="all">All sources</option>${sources.map(source => `<option value="${esc(source)}">${esc(source)}</option>`).join("")}`;
+      select.value = sources.includes(current) ? current : "all";
+    }
+
+    function statusClass(status) {
+      return `status-${String(status || "saved").toLowerCase().replace(/\s+/g, "-")}`;
+    }
+
+    function setView(view) {
+      currentView = view;
+      document.getElementById("table-view").classList.toggle("hidden", view !== "table");
+      document.getElementById("kanban-view").classList.toggle("hidden", view !== "board");
+      document.getElementById("table-view-btn").className = view === "table"
+        ? "px-3 py-1.5 bg-slate-700 text-white"
+        : "px-3 py-1.5 bg-slate-950 text-slate-400";
+      document.getElementById("board-view-btn").className = view === "board"
+        ? "px-3 py-1.5 bg-slate-700 text-white"
+        : "px-3 py-1.5 bg-slate-950 text-slate-400";
+      render();
+    }
+
+    function renderKanban(visibleJobs) {
+      const columns = ["Saved", "New Match", "Applied", "Interview", "Offer", "Rejected", "Withdrawn", "Position Closed"];
+      document.getElementById("kanban-board").innerHTML = columns.map(status => {
+        const columnJobs = visibleJobs.filter(job => (job.status || "Saved") === status);
+        return `<div class="bg-slate-950/70 border border-slate-800 rounded-lg p-3 min-h-40" ondragover="allowDrop(event)" ondrop="dropJob(event, '${status}')">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-xs font-semibold text-slate-300">${status}</h3>
+            <span class="text-[10px] text-slate-500">${columnJobs.length}</span>
+          </div>
+          <div class="space-y-2">${columnJobs.length ? columnJobs.map(job => `
+            <article draggable="true" ondragstart="dragJob(event, '${job.id}')" class="bg-slate-900 border border-slate-800 rounded-lg p-3 cursor-grab active:cursor-grabbing">
+              <p class="text-xs font-semibold text-white leading-5">${esc(job.title)}</p>
+              <p class="text-[11px] text-slate-400 mt-1">${esc(job.company)}</p>
+              ${job.location ? `<p class="text-[10px] text-slate-500 mt-1">${esc(job.location)}</p>` : ""}
+              ${job.salary || job.work_type ? `<p class="text-[10px] text-sky-300 mt-2">${esc([job.salary, job.work_type].filter(Boolean).join(" · "))}</p>` : ""}
+              ${job.resume_version || job.follow_up_date ? `<p class="text-[10px] text-amber-300 mt-2">${esc([job.resume_version, job.follow_up_date ? `Follow up ${formatDate(job.follow_up_date)}` : ""].filter(Boolean).join(" · "))}</p>` : ""}
+              ${job.notes ? `<p class="text-[10px] text-slate-500 mt-2 line-clamp-2">${esc(job.notes)}</p>` : ""}
+              <div class="flex items-center justify-between mt-3">
+                <select onchange="updateStatus('${job.id}', this.value)" class="bg-slate-950 border border-slate-700 text-[10px] rounded px-1.5 py-1">
+                  ${columns.map(option => `<option ${option === status ? "selected" : ""}>${option}</option>`).join("")}
+                </select>
+                ${job.job_url ? `<a class="text-[10px] text-sky-400 hover:underline" target="_blank" rel="noopener noreferrer" href="${esc(job.job_url)}">Open</a>` : ""}
+              </div>
+            </article>`).join("") : `<p class="text-[10px] text-slate-600 py-4 text-center">No applications</p>`}</div>
+        </div>`;
+      }).join("");
+    }
+
+    function dragJob(event, jobId) {
+      event.dataTransfer.setData("text/plain", jobId);
+      event.dataTransfer.effectAllowed = "move";
+    }
+
+    function allowDrop(event) {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+    }
+
+    function dropJob(event, status) {
+      event.preventDefault();
+      const jobId = event.dataTransfer.getData("text/plain");
+      const job = jobs.find(item => item.id === jobId);
+      if (job && job.status !== status) updateStatus(jobId, status);
+    }
+
+    function render() {
+      const tbody = document.getElementById("job-rows");
+      const emptyMsg = document.getElementById("empty-msg");
+      const visibleJobs = filteredJobs();
+
+      const total = jobs.length;
+      const applied = jobs.filter(j => (j.status || "").toLowerCase() === "applied").length;
+      const interview = jobs.filter(j => (j.status || "").toLowerCase().includes("interview")).length;
+      const other = jobs.filter(j => ["offer", "rejected"].includes((j.status || "").toLowerCase())).length;
+      const tracked = jobs.filter(j => !["saved", "new match"].includes((j.status || "").toLowerCase())).length;
+      const positiveResponses = jobs.filter(j => ["interview", "offer"].includes((j.status || "").toLowerCase())).length;
+      const responseDurations = jobs
+        .filter(j => j.application_date && j.response_date)
+        .map(j => (new Date(j.response_date) - new Date(j.application_date)) / 86400000)
+        .filter(days => Number.isFinite(days) && days >= 0);
+      const averageResponse = responseDurations.length
+        ? `${(responseDurations.reduce((sum, days) => sum + days, 0) / responseDurations.length).toFixed(1)}d`
+        : "—";
+
+      document.getElementById("stat-total").textContent = total;
+      document.getElementById("stat-applied").textContent = applied;
+      document.getElementById("stat-interview").textContent = interview;
+      document.getElementById("stat-other").textContent = other;
+      document.getElementById("stat-rate").textContent = `${tracked ? Math.round((positiveResponses / tracked) * 100) : 0}%`;
+      document.getElementById("stat-response").textContent = averageResponse;
+      document.getElementById("stat-follow-ups").textContent = jobs.filter(j => j.follow_up_date && new Date(j.follow_up_date) <= new Date()).length;
+      document.getElementById("result-count").textContent = `${visibleJobs.length} of ${total} application${total === 1 ? "" : "s"}`;
+
+      if (visibleJobs.length === 0) {
+        tbody.innerHTML = "";
+        renderKanban([]);
+        emptyMsg.classList.remove("hidden");
+        emptyMsg.textContent = total === 0
+          ? "No jobs yet. Open a job on LinkedIn/Indeed and save with the extension."
+          : "No applications match these filters.";
+        return;
+      }
+
+      emptyMsg.classList.add("hidden");
+
+      tbody.innerHTML = visibleJobs.map(j => `
+        <tr class="hover:bg-slate-900/70">
+          <td class="px-4 py-3 font-medium text-white">${esc(j.title)}</td>
+          <td class="px-4 py-3 text-slate-400">${esc(j.company)}
+            <div class="text-[10px] text-slate-600 mt-1">${esc([j.location, j.work_type, j.experience_level].filter(Boolean).join(" · "))}</div>
+            ${j.salary ? `<div class="text-[10px] text-emerald-400 mt-1">${esc(j.salary)}</div>` : ""}
+            ${j.resume_version || j.follow_up_date ? `<div class="text-[10px] text-amber-300 mt-1">${esc([j.resume_version, j.follow_up_date ? `Follow up ${formatDate(j.follow_up_date)}` : ""].filter(Boolean).join(" · "))}</div>` : ""}
+          </td>
+          <td class="px-4 py-3 text-xs text-slate-500">${esc(j.source || "Manual")}</td>
+          <td class="px-4 py-3">
+            <span class="status-badge ${statusClass(j.status)} mr-2">${esc(j.status || "Saved")}</span>
+            <select onchange="updateStatus('${j.id}', this.value)" class="bg-slate-950 border border-slate-700 text-xs rounded px-2 py-1 focus:outline-none">
+              <option value="Saved" ${j.status === "Saved" ? "selected" : ""}>Saved</option>
+              <option value="New Match" ${j.status === "New Match" ? "selected" : ""}>New Match</option>
+              <option value="Applied" ${j.status === "Applied" ? "selected" : ""}>Applied</option>
+              <option value="Interview" ${j.status === "Interview" ? "selected" : ""}>Interview</option>
+              <option value="Offer" ${j.status === "Offer" ? "selected" : ""}>Offer</option>
+              <option value="Rejected" ${j.status === "Rejected" ? "selected" : ""}>Rejected</option>
+              <option value="Withdrawn" ${j.status === "Withdrawn" ? "selected" : ""}>Withdrawn</option>
+              <option value="Position Closed" ${j.status === "Position Closed" ? "selected" : ""}>Position Closed</option>
+            </select>
+          </td>
+          <td class="px-4 py-3 text-right space-x-2">
+            ${j.job_url ? `<a class="text-xs text-sky-400 hover:underline" target="_blank" rel="noopener noreferrer" href="${esc(j.job_url)}">Open</a>` : ""}
+            <button onclick="deleteJob('${j.id}')" class="text-xs text-red-400 hover:underline">Delete</button>
+          </td>
+        </tr>`).join("");
+      renderKanban(visibleJobs);
+    }
+
+    function exportJobs() {
+      const rows = filteredJobs();
+      if (!rows.length) return alert("There are no applications to export.");
+      const columns = ["Title", "Company", "Location", "Status", "Source", "URL", "Salary", "Experience", "Work Type", "Resume Version", "Follow-up Date", "Notes", "Created"];
+      const csvCell = value => `"${String(value ?? "").replace(/"/g, '""')}"`;
+      const csv = [columns.join(","), ...rows.map(job => [
+        job.title, job.company, job.location, job.status, job.source, job.job_url, job.salary, job.experience_level, job.work_type, job.resume_version, job.follow_up_date, job.notes, job.created_at
+      ].map(csvCell).join(","))].join("\r\n");
+      const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `applypulse-applications-${new Date().toISOString().slice(0, 10)}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function downloadFile(filename, content, type) {
+      const url = URL.createObjectURL(new Blob([content], { type }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function exportJSON() {
+      const rows = filteredJobs();
+      if (!rows.length) return alert("There are no applications to export.");
+      downloadFile(`applypulse-applications-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(rows, null, 2), "application/json");
+    }
+
+    function formatDate(value) {
+      if (!value) return "";
+      return new Date(value).toLocaleDateString();
+    }
+
+    function icsDate(value) {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return null;
+      return date.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+    }
+
+    function escapeICS(value) {
+      return String(value ?? "").replace(/[\\;,\n]/g, match => match === "\n" ? "\\n" : `\\${match}`);
+    }
+
+    function exportCalendar() {
+      const reminders = filteredJobs().filter(job => job.follow_up_date);
+      if (!reminders.length) return alert("Add follow-up dates before exporting a calendar.");
+      const events = reminders.map(job => {
+        const start = icsDate(job.follow_up_date);
+        const end = icsDate(new Date(new Date(job.follow_up_date).getTime() + 30 * 60000));
+        return `BEGIN:VEVENT\nUID:${job.id}@applypulse\nDTSTAMP:${icsDate(new Date())}\nDTSTART:${start}\nDTEND:${end}\nSUMMARY:Follow up: ${escapeICS(job.title)} at ${escapeICS(job.company)}\nDESCRIPTION:${escapeICS(job.notes || job.job_url || "Application follow-up")}\nEND:VEVENT`;
+      }).join("\n");
+      downloadFile(`applypulse-follow-ups-${new Date().toISOString().slice(0, 10)}.ics`, `BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//ApplyPulse//Follow-ups//EN\n${events}\nEND:VCALENDAR`, "text/calendar;charset=utf-8");
+    }
+
+    async function addJob() {
+      const title = document.getElementById("new-title").value.trim();
+      const company = document.getElementById("new-company").value.trim();
+      const location = document.getElementById("new-location").value.trim();
+      const job_url = document.getElementById("new-url").value.trim();
+      const notes = document.getElementById("new-notes").value.trim();
+      const resume_version = document.getElementById("new-resume-version").value.trim();
+      const follow_up_date = document.getElementById("new-follow-up-date").value || null;
+      const msg = document.getElementById("form-msg");
+
+      if (!title || !company) {
+        msg.textContent = "Title and Company are required.";
+        msg.className = "text-xs text-red-400";
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API}/api/jobs/`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + token
+          },
+          body: JSON.stringify({ title, company, location, job_url, notes, resume_version, follow_up_date: follow_up_date ? `${follow_up_date}T09:00:00` : null, source: "Manual", status: "Saved" })
+        });
+
+        if (res.ok) {
+          msg.textContent = "Job added successfully!";
+          msg.className = "text-xs text-emerald-400";
+          document.getElementById("new-title").value = "";
+          document.getElementById("new-company").value = "";
+          document.getElementById("new-location").value = "";
+          document.getElementById("new-url").value = "";
+          document.getElementById("new-resume-version").value = "";
+          document.getElementById("new-follow-up-date").value = "";
+          document.getElementById("new-notes").value = "";
+          loadJobs();
+        } else {
+          const err = await res.json();
+          msg.textContent = err.detail || "Failed to add job.";
+          msg.className = "text-xs text-red-400";
+        }
+      } catch {
+        msg.textContent = "Server error. Try again.";
+        msg.className = "text-xs text-red-400";
+      }
+    }
+
+    async function updateStatus(id, newStatus) {
+      try {
+        await fetch(`${API}/api/jobs/${id}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + token
+          },
+          body: JSON.stringify({ status: newStatus })
+        });
+        loadJobs();
+      } catch {
+        alert("Failed to update status");
+      }
+    }
+
+    async function deleteJob(id) {
+      if (!confirm("Are you sure you want to delete this job application?")) return;
+      try {
+        const res = await fetch(`${API}/api/jobs/${id}`, {
+          method: "DELETE",
+          headers: { Authorization: "Bearer " + token }
+        });
+        if (res.ok) {
+          jobs = jobs.filter(j => j.id !== id);
+          render();
+        }
+      } catch {
+        alert("Failed to delete application");
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem("access_token");
+      token = null;
+      showLogin();
+    }
+
+    document.getElementById("login-btn")?.addEventListener("click", login);
+    document.getElementById("google-login-btn")?.addEventListener("click", startGoogleLogin);
+    document.getElementById("logout-btn")?.addEventListener("click", logout);
+    document.getElementById("add-job-btn")?.addEventListener("click", addJob);
+    document.getElementById("job-search")?.addEventListener("input", render);
+    document.getElementById("status-filter")?.addEventListener("change", render);
+    document.getElementById("source-filter")?.addEventListener("change", render);
+
+    token = getToken();
+    if (token) showApp();
+    else showLogin();
+  </script>
+</body>
+</html>
