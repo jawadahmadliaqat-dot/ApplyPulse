@@ -1,5 +1,7 @@
 import os
-import asyncio
+import time
+import threading
+import requests
 from contextlib import asynccontextmanager
 from typing import List
 
@@ -7,12 +9,39 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-import httpx
 
 from database import db, ensure_indexes
 from routes.auth_routes import router as auth_router
 from routes.job_routes import router as job_router
 
+
+# ==========================================
+# 1. Background Keep-Alive Bot (Threading)
+# ==========================================
+def keep_alive_bot():
+    """Background thread to keep the Render instance awake by self-pinging."""
+    target_url = os.getenv("SELF_PING_URL", "https://applypulse.onrender.com/api/health")
+    interval = int(os.getenv("SELF_PING_INTERVAL_SECONDS", "600"))  # Ping every 10 minutes
+
+    print(f"🤖 Keep-Alive Bot initialized! Target: {target_url}")
+    time.sleep(20)  # Initial wait server complete boot hone ke liye
+
+    while True:
+        try:
+            res = requests.get(target_url, timeout=10)
+            print(f"⏰ [Keep-Alive Ping Success] Status Code: {res.status_code}")
+        except Exception as e:
+            print(f"⚠️ [Keep-Alive Ping Failed]: {e}")
+        
+        time.sleep(interval)
+
+# Background thread ko startup par hi execute kar do
+threading.Thread(target=keep_alive_bot, daemon=True).start()
+
+
+# ==========================================
+# 2. WebSocket Connection Manager
+# ==========================================
 class ConnectionManager:
     def __init__(self):
         self.active_connections: List[WebSocket] = []
@@ -36,34 +65,20 @@ class ConnectionManager:
 ws_manager = ConnectionManager()
 
 
-async def self_ping_worker() -> None:
-    """Keep an active deployment warm when an explicit self-ping URL is configured."""
-    ping_url = os.getenv("SELF_PING_URL")
-    if not ping_url:
-        return
-
-    interval = int(os.getenv("SELF_PING_INTERVAL_SECONDS", "180"))
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        while True:
-            try:
-                await client.get(ping_url)
-            except httpx.HTTPError:
-                pass
-            await asyncio.sleep(interval)
-
-
+# ==========================================
+# 3. Application Lifespan
+# ==========================================
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # --- Startup ---
+    # Startup tasks
     await ensure_indexes()
-    ping_task = asyncio.create_task(self_ping_worker())
-    try:
-        yield
-    finally:
-        ping_task.cancel()
-        await asyncio.gather(ping_task, return_exceptions=True)
+    yield
+    # Shutdown tasks
 
 
+# ==========================================
+# 4. FastAPI Setup & Routes
+# ==========================================
 app = FastAPI(
     title="ApplyPulse API",
     description="Job Application Tracker API",
